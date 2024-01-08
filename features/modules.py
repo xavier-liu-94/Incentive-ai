@@ -2,6 +2,64 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+from .contextual_mapping import *
+
+
+class EncoderLayer(nn.Module):
+    ''' Compose with two layers '''
+
+    def __init__(self, dim_x, dim_mid, head_num, out_dim, dropout=0.1):
+        super(EncoderLayer, self).__init__()
+        self.slf_attn = NormalizedContextualMapping(dim_x, dim_x, dim_mid, head_num, dropout=dropout)
+        self.pos_ffn = PositionwiseFeedForward(dim_x, out_dim, dropout=dropout)
+
+    def forward(self, x, x_mask=None):
+        enc_output = self.slf_attn(x, x, mask=x_mask)
+        enc_output = self.pos_ffn(enc_output)
+        return enc_output
+
+
+class DecoderLayer(nn.Module):
+    ''' Compose with three layers '''
+
+    def __init__(self, dim_x, dim_y, dim_mid, head_num, out_dim, dropout=0.1):
+        super(DecoderLayer, self).__init__()
+        self.slf_mapping = NormalizedContextualMapping(dim_x, dim_x, dim_mid, head_num, dropout=dropout)
+        self.relation_mapping = NormalizedContextualMapping(dim_x, dim_y, dim_mid, head_num, dropout=dropout)
+        self.pos_ffn = PositionwiseFeedForward(dim_x, out_dim, dropout=dropout)
+
+    def forward(self, x, y, x_mask=None, dec_mask=None):
+        dec_output = self.slf_mapping(x, x, mask=x_mask)
+        dec_output = self.relation_mapping(x, y, mask=dec_mask)
+        dec_output = self.pos_ffn(dec_output)
+        return dec_output
+
+
+class NormalizedContextualMapping(nn.Module):
+    ''' Same as Multi-Head Attention module '''
+
+    def __init__(self, dim_x, dim_y, dim_mid, head_num, dropout=0.1):
+        super().__init__()
+
+        self.n_head = head_num
+
+        self.context_map = ContextualMapping(
+            dim_x=dim_x, 
+            dim_y=dim_y, 
+            dim_mid=dim_mid, 
+            head_num=head_num, 
+            pe_mapping_factory=lambda: LinearSoftmax(dim_x, dim_y, dim_mid, head_num, temperature=dim_mid ** 0.5,attn_dropout=dropout))
+        
+        self.layer_norm = nn.LayerNorm(dim_x, eps=1e-6)
+
+
+    def forward(self, x, y, mask=None):
+        # x -> batch, n_x, dim_x
+        # y -> batch, n_y, dim_y
+        # mask -> batch, n_x, n_y
+        # return -> batch, n_x, dim_x
+        q = self.context_map(x, y, mask)
+        return self.layer_norm(q)
 
 
 class SettledPositionalEncoding(nn.Module):
