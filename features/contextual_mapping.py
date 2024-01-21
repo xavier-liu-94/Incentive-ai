@@ -10,20 +10,25 @@ from abc import abstractmethod
 class PEMappingWithMask(nn.Module):
 
     @abstractmethod
-    def forward(self, x, y, mask):
-        # x -> batch, n_x, dim_x
-        # y -> batch, n_y, dim_y
-        # mask -> batch, n_x, n_y. 0 means ignroed
+    def forward(self, x_seq, condition_seq, condition_seq_mask):
+        # x_seq -> batch, n_x, dim_x
+        # condition_seq -> batch, n_y, dim_y
+        # condition_seq_mask -> batch, n_x, n_y. 0 means ignroed
         # return -> batch, head_num, n_x, n_y
         raise NotImplementedError
 
 
+# Contextual Mapping with multi-head
+# x_seq: [x1, x2, x3 ... xn]
+# condition_seq: [y1, y2, y3 ... ym]
+# after mapping: [z1, z2, z3 ... zn]
+# zi is unique for xi under context [y1, y2, y3 ... ym]
 class ContextualMapping(nn.Module):
 
     def __init__(
             self, 
             dim_x: int, 
-            dim_y: int, 
+            dim_condition: int, 
             dim_mid: int,
             head_num: int,
             pe_mapping_factory: Callable[[],PEMappingWithMask],
@@ -38,35 +43,36 @@ class ContextualMapping(nn.Module):
         self.pe = pe_mapping_factory()
 
         # value tranfer
-        self.vt = nn.Linear(dim_y, dim_mid*head_num, bias=False)
+        self.vt = nn.Linear(dim_condition, dim_mid*head_num, bias=False)
 
-        # output tranfer. Theoratically, it is part of value
+        # output tranfer. Merge outputs of different heads.
         self.fc = nn.Linear(dim_mid*head_num, dim_x, bias=False)
 
         self.dropout = nn.Dropout(dropout_ratio)
 
-    def forward(self, x: torch.Tensor, y: torch.Tensor, mask: torch.Tensor):
-        # x -> batch, n_x, dim_x
-        # y -> batch, n_y, dim_y
-        # mask -> batch, n_x, n_y
+    def forward(self, x_seq: torch.Tensor, condition_seq: torch.Tensor, condition_seq_mask: torch.Tensor):
+        # x_seq -> batch, n_x, dim_x
+        # condition_seq -> batch, n_y, dim_y
+        # condition_seq_mask -> batch, n_x, n_y
         # return -> batch, n_x, dim_x
-        n_x = x.size(1)
-        n_y = y.size(1)
+        n_x = x_seq.size(1)
+        n_y = condition_seq.size(1)
 
         # batch, head_num, n_x, n_y
-        relation = self.pe(x, y, mask)
+        relation = self.pe(x_seq, condition_seq, condition_seq_mask)
 
         # batch, n_y, head_num, dim_mid
-        value = self.vt(y).view(-1, n_y, self.head_num, self.dim_mid)
+        value = self.vt(condition_seq).view(-1, n_y, self.head_num, self.dim_mid)
 
         # for matmul(a, b), torch will do matmul for the last two dimention and deeming the rest dimention as match index
 
         # multi_head_output -> batch, head_num, n_x, dim_mid
         multi_head_output = torch.matmul(relation, value.permute(0,2,1,3))
 
+        # Merge outputs of different heads
         result = self.dropout(self.fc(
             multi_head_output.permute(0, 2, 1, 3).contiguous().view(-1, n_x, self.head_num*self.dim_mid)
-            )) + x
+            )) + x_seq
             
         return result
 
@@ -75,7 +81,7 @@ class LinearSoftmax(PEMappingWithMask):
 
     def __init__(self, 
                  dim_x: int, 
-                 dim_y: int, 
+                 dim_condition: int, 
                  dim_mid: int,
                  head_num: int,
                  temperature: float,
@@ -83,32 +89,32 @@ class LinearSoftmax(PEMappingWithMask):
                  ) -> None:
         super().__init__()
         self.linear_x = nn.Linear(dim_x, dim_mid*head_num, bias=False)
-        self.linear_y = nn.Linear(dim_y, dim_mid*head_num, bias=False)
+        self.linear_condition = nn.Linear(dim_condition, dim_mid*head_num, bias=False)
         self.temperature = temperature
         self.dropout = nn.Dropout(attn_dropout)
         self.dim_mid = dim_mid
         self.head_num = head_num
 
-    def forward(self, x, y, mask=None):
-        # x -> batch, n_x, dim_x
-        # y -> batch, n_y, dim_y
-        # mask -> batch, n_x, n_y. 0 means ignroed
+    def forward(self, x_seq, condition_seq, condition_seq_mask=None):
+        # x_seq -> batch, n_x, dim_x
+        # condition_seq -> batch, n_y, dim_y
+        # condition_seq_mask -> batch, n_x, n_y. 0 means ignroed
 
-        n_x = x.size(1)
-        n_y = y.size(1)
+        n_x = x_seq.size(1)
+        n_y = condition_seq.size(1)
 
         # batch, n_x, head_num, dim_mid
-        multi_head_x = self.linear_x(x).view(-1, n_x, self.head_num, self.dim_mid)
+        multi_head_x = self.linear_x(x_seq).view(-1, n_x, self.head_num, self.dim_mid)
 
         # batch, n_y, head_num, dim_mid
-        multi_head_y = self.linear_y(y).view(-1, n_y, self.head_num, self.dim_mid)
+        multi_head_y = self.linear_condition(condition_seq).view(-1, n_y, self.head_num, self.dim_mid)
 
         # batch, head_num, n_x, n_y
         similarity = torch.matmul(multi_head_x.permute(0,2,1,3), multi_head_y.permute(0,2,3,1))
 
-        if mask is not None:
-            mask = mask.unsqueeze(1)
-            similarity = similarity.masked_fill(mask==0, -1e9)
+        if condition_seq_mask is not None:
+            condition_seq_mask = condition_seq_mask.unsqueeze(1)
+            similarity = similarity.masked_fill(condition_seq_mask==0, -1e9)
 
         return self.dropout(F.softmax(similarity, dim=-1))
 

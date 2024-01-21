@@ -15,6 +15,7 @@ def flat_batch_target(trg: torch.Tensor) -> torch.Tensor:
     return trg[:, 1:].contiguous().view(-1)
 
 def seq_eval(pred: torch.Tensor, trg: torch.Tensor, trg_pad_idx: int):
+    pred = pred.max(1)[1]
     non_pad_mask = trg.ne(trg_pad_idx)
     n_correct = pred.eq(trg).masked_select(non_pad_mask).sum().item()
     n_word = non_pad_mask.sum().item()
