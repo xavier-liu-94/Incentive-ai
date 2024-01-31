@@ -1,6 +1,6 @@
 import torch
 from torch import functional as F
-from utils import *
+from .utils import *
 
 
 class NextSequencialPredictor():
@@ -89,3 +89,6 @@ class NextSequencialPredictor():
         n_correct, n_word = seq_eval(flated_batch_preds, seq_trg, self.seq_pad_idx)
 
         return loss, n_correct, n_word
+
+if __name__ == "__main__":
+    pass

@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from modules import *
+from .modules import *
 
 class Encoder(nn.Module):
 
@@ -61,26 +61,26 @@ class Decoder(nn.Module):
         return output
 
 
-def get_encoder(values_num, seq_dim, seq_max_len, pad_idx) -> Encoder:
+def get_encoder(values_num, seq_max_len, pad_idx) -> Encoder:
     return Encoder(
         x_values_num=values_num,
         n_layers=6,
         head_num=8,
         dim_mid=64,
-        dim_x=seq_dim,
-        ff_hiden_dim=seq_dim,
+        dim_x=512,
+        ff_hiden_dim=512,
         pad_idx=pad_idx,
         n_position=seq_max_len)
 
-def get_decode(values_num, seq_dim, seq_max_len, pad_idx, condition_dim) -> Decoder:
+def get_decode(values_num, seq_max_len, pad_idx) -> Decoder:
     return Decoder(
         x_values_num=values_num,
         n_layers=6,
         head_num=8,
         dim_mid=64,
-        dim_x=seq_dim,
-        dim_condition=condition_dim,
-        ff_hiden_dim=seq_dim,
+        dim_x=512,
+        dim_condition=512,
+        ff_hiden_dim=512,
         pad_idx=pad_idx,
         n_position=seq_max_len,
     )
