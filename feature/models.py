@@ -1,6 +1,8 @@
 import torch
 from torch import nn
+from .embedings import *
 from .modules import *
+
 
 class Encoder(nn.Module):
 
@@ -27,6 +29,7 @@ class Encoder(nn.Module):
             enc_output = enc_layer(enc_output, x_mask=x_seq_mask)
 
         return enc_output
+
 
 class Decoder(nn.Module):
     ''' A decoder model with self attention mechanism. '''
@@ -71,6 +74,7 @@ def get_encoder(values_num, seq_max_len, pad_idx) -> Encoder:
         ff_hiden_dim=512,
         pad_idx=pad_idx,
         n_position=seq_max_len)
+
 
 def get_decode(values_num, seq_max_len, pad_idx) -> Decoder:
     return Decoder(

@@ -1,5 +1,5 @@
 import torch
-from torch import functional as F
+import torch.nn.functional as F
 from .utils import *
 
 
