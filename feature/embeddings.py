@@ -13,7 +13,6 @@ class SettledPositionalEncoding(nn.Module):
 
     def _get_sinusoid_encoding_table(self, n_position, d_hid):
         ''' Sinusoid position encoding table '''
-        # TODO: make it with torch instead of numpy
 
         def get_position_angle_vec(position):
             return [position / np.power(10000, 2 * (hid_j // 2) / d_hid) for hid_j in range(d_hid)]
@@ -48,10 +47,11 @@ class ContinousSeqEmbedding(nn.Module):
         self.pad_idx = pad_idx
     
     def forward(self, x: torch.Tensor):
-        is_pad = x==self.pad_idx
+        is_pad = 1*(x==self.pad_idx)
+        multi = (1-is_pad) * x + is_pad
         
         # batch, max_len -> batch, max_len, output_dim
-        return self.position_enc(self.src_word_emb(x))
+        return multi * self.position_enc(self.src_word_emb(is_pad))
 
 
 if __name__ == "__main__":

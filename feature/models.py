@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from .embedings import *
+from .embeddings import *
 from .modules import *
 
 
@@ -14,11 +14,14 @@ class Encoder(nn.Module):
         self.position_enc = SettledPositionalEncoding(dim_x, n_position=n_position)
         self.dropout = nn.Dropout(p=dropout)
         self.layer_stack = nn.ModuleList([
-            EncoderLayer(dim_x, dim_mid, head_num, ff_hiden_dim, dropout=dropout)
+            SequenceMappingLayer(dim_x, dim_mid, head_num, ff_hiden_dim, dropout=dropout)
             for _ in range(n_layers)])
         self.layer_norm = nn.LayerNorm(dim_x, eps=1e-6)
         self.d_model = dim_x
 
+    # x_seq -> batch, n_x
+    # x_seq_mask -> batch, 1, n_x
+    # return -> batch, n_x, dim_x
     def forward(self, x_seq, x_seq_mask):
 
         enc_output = self.src_word_emb(x_seq)
@@ -43,12 +46,17 @@ class Decoder(nn.Module):
         self.position_enc = SettledPositionalEncoding(dim_x, n_position=n_position)
         self.dropout = nn.Dropout(p=dropout)
         self.layer_stack = nn.ModuleList([
-            DecoderLayer(dim_x, dim_condition, dim_mid, head_num, ff_hidden_dim, dropout=dropout)
+            ConditionSequenceMappingLayer(dim_x, dim_condition, dim_mid, head_num, ff_hidden_dim, dropout=dropout)
             for _ in range(n_layers)])
         self.layer_norm = nn.LayerNorm(dim_x, eps=1e-6)
         self.trg_word_prj = nn.Linear(dim_x, x_values_num, bias=False)
         self.d_model = dim_x
 
+    # x_seq -> batch, n_x
+    # x_seq_mask -> batch, n_y, n_x
+    # condition_seq -> batch, n_y, dim_y
+    # condition_seq_mask -> batch, 1, n_y
+    # return -> batch, n_x, dim_x
     def forward(self, x_seq, x_seq_mask, condition_seq, condition_seq_mask):
         # -- Forward
         dec_output = self.trg_word_emb(x_seq)
@@ -88,3 +96,31 @@ def get_decode(values_num, seq_max_len, pad_idx) -> Decoder:
         pad_idx=pad_idx,
         n_position=seq_max_len,
     )
+
+
+class SequenceClassifier(nn.Module):
+
+    def __init__(self, embedding_factory: Callable[..., nn.Module], n_layers, head_num, dim_mid,
+            dim_x, ff_hiden_dim, dropout=0.1):
+
+        super().__init__()
+        self.src_word_emb = embedding_factory()
+        self.dropout = nn.Dropout(p=dropout)
+        self.layer_stack = nn.ModuleList([
+            SequenceMappingLayer(dim_x, dim_mid, head_num, ff_hiden_dim, dropout=dropout)
+            for _ in range(n_layers)])
+        self.layer_norm = nn.LayerNorm(dim_x, eps=1e-6)
+        self.d_model = dim_x
+
+    # x_seq -> batch, n_x
+    # x_seq_mask -> batch, 1, n_x
+    # return -> batch, n_x, dim_x
+    def forward(self, x_seq, x_seq_mask):
+
+        enc_output = self.src_word_emb(x_seq)
+        enc_output = self.layer_norm(enc_output)
+
+        for enc_layer in self.layer_stack:
+            enc_output = enc_layer(enc_output, x_mask=x_seq_mask)
+
+        return enc_output

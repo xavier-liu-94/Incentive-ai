@@ -5,29 +5,36 @@ import torch
 from .contextual_mapping import *
 
 
-class EncoderLayer(nn.Module):
+class SequenceMappingLayer(nn.Module):
     ''' Compose with two layers '''
 
     def __init__(self, dim_x, dim_mid, head_num, hidden_dim, dropout=0.1):
-        super(EncoderLayer, self).__init__()
+        super(SequenceMappingLayer, self).__init__()
         self.slf_attn = NormalizedContextualMapping(dim_x, dim_x, dim_mid, head_num, dropout=dropout)
         self.pos_ffn = PositionwiseFeedForward(dim_x, hidden_dim, dropout=dropout)
 
+    # x -> batch, seq_len, dim_x
+    # x_mask -> batch, 1, seq_len
+    # return -> batch, seq_len, dim_x
     def forward(self, x, x_mask=None):
         enc_output = self.slf_attn(x, x, mask=x_mask)
         enc_output = self.pos_ffn(enc_output)
         return enc_output
 
 
-class DecoderLayer(nn.Module):
+class ConditionSequenceMappingLayer(nn.Module):
     ''' Compose with three layers '''
 
     def __init__(self, dim_x, dim_condition, dim_mid, head_num, hidden_dim, dropout=0.1):
-        super(DecoderLayer, self).__init__()
+        super(ConditionSequenceMappingLayer, self).__init__()
         self.slf_mapping = NormalizedContextualMapping(dim_x, dim_x, dim_mid, head_num, dropout=dropout)
         self.relation_mapping = NormalizedContextualMapping(dim_x, dim_condition, dim_mid, head_num, dropout=dropout)
         self.pos_ffn = PositionwiseFeedForward(dim_x, hidden_dim, dropout=dropout)
-
+    
+    # x -> batch, seq_len, dim_x
+    # y -> batch, condition_seq_len, dim_y
+    # x_mask -> batch, seq_len, seq_len
+    # dec_mask -> batch, 1, condition_seq_len
     def forward(self, x, y, x_mask=None, dec_mask=None):
         dec_output = self.slf_mapping(x, x, mask=x_mask)
         dec_output = self.relation_mapping(x, y, mask=dec_mask)
@@ -83,20 +90,6 @@ class PositionwiseFeedForward(nn.Module):
         x = self.layer_norm(x)
 
         return x
-
-
-class MovingAverage(nn.Module):
-
-    def __init__(self, size, moving_value=0.999) -> None:
-        super().__init__()
-        self.moving_value = moving_value
-        self.register_buffer("value", torch.zeros(size))
-
-    def average(self, new_value):
-        self.value = (1-self.moving_value) * new_value + self.moving_value * self.value
-    
-    def forward(self):
-        return self.value
 
 
 class GradNorm(nn.Module):
