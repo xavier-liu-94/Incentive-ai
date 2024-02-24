@@ -51,7 +51,7 @@ class ContinousSeqEmbedding(nn.Module):
         multi = (1-is_pad) * x + is_pad
         
         # batch, max_len -> batch, max_len, output_dim
-        return multi * self.position_enc(self.src_word_emb(is_pad))
+        return multi.unsqueeze(-1) * self.position_enc(self.src_word_emb(is_pad))
 
 
 if __name__ == "__main__":

@@ -32,40 +32,39 @@ class ConditionSequenceMappingLayer(nn.Module):
         self.pos_ffn = PositionwiseFeedForward(dim_x, hidden_dim, dropout=dropout)
     
     # x -> batch, seq_len, dim_x
-    # y -> batch, condition_seq_len, dim_y
+    # condition -> batch, condition_seq_len, dim_y
     # x_mask -> batch, seq_len, seq_len
-    # dec_mask -> batch, 1, condition_seq_len
-    def forward(self, x, y, x_mask=None, dec_mask=None):
+    # condition_mask -> batch, 1, condition_seq_len
+    def forward(self, x, condition, x_mask=None, condition_mask=None):
         dec_output = self.slf_mapping(x, x, mask=x_mask)
-        dec_output = self.relation_mapping(x, y, mask=dec_mask)
+        dec_output = self.relation_mapping(x, condition, mask=condition_mask)
         dec_output = self.pos_ffn(dec_output)
         return dec_output
 
 
 class NormalizedContextualMapping(nn.Module):
-    ''' Same as Multi-Head Attention module '''
 
-    def __init__(self, dim_x, dim_condition, dim_mid, head_num, dropout=0.1):
+    def __init__(self, dim_x, dim_context, dim_mid, head_num, dropout=0.1):
         super().__init__()
 
         self.n_head = head_num
 
         self.context_map = ContextualMapping(
             dim_x=dim_x, 
-            dim_condition=dim_condition, 
+            dim_context=dim_context, 
             dim_mid=dim_mid, 
             head_num=head_num, 
-            pe_mapping_factory=lambda: LinearSoftmax(dim_x, dim_condition, dim_mid, head_num, temperature=dim_mid ** 0.5,attn_dropout=dropout))
+            pe_mapping_factory=lambda: LinearSoftmax(dim_x, dim_context, dim_mid, head_num, temperature=dim_mid ** 0.5,attn_dropout=dropout))
         
         self.layer_norm = nn.LayerNorm(dim_x, eps=1e-6)
 
 
-    def forward(self, x, condition, mask=None):
+    def forward(self, x, context, mask=None):
         # x -> batch, n_x, dim_x
-        # condition -> batch, n_y, dim_y
+        # context -> batch, n_y, dim_y
         # mask -> batch, n_x, n_y
         # return -> batch, n_x, dim_x
-        q = self.context_map(x, condition, mask)
+        q = self.context_map(x, context, mask)
         return self.layer_norm(q)
 
 

@@ -1,2 +1,2 @@
 from .next_sequencial_predictor import NextSequencialPredictor
-from .sequencial_classification import SequencialClassifier
+from .sequencial_classifier import SequencialClassifier
