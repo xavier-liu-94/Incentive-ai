@@ -27,10 +27,13 @@ class SequencialClassifier():
     def train(
         self, 
         batch_seq: torch.Tensor,    # batch, n1.
+        batch_mask: torch.Tensor,
         probabilities: torch.Tensor, # batch, prob of class
         ) -> None:
+        if self.state != "train":
+            self.model.train()
+            self.state = "train"
 
-        batch_mask = get_seq_mask(batch_seq, self.seq_pad_idx)
         output = self.model(batch_seq, batch_mask)
 
         loss = F.cross_entropy(output, probabilities)
@@ -40,3 +43,13 @@ class SequencialClassifier():
         self.opt.step()
         
         print(loss.detach().cpu().numpy())
+
+    def predict(
+        self,
+        batch_seq: torch.Tensor,    # batch, n1.
+        batch_mask: torch.Tensor):
+        if self.state != "eval":
+            self.model.eval()
+            self.state = "eval"
+
+        return self.model(batch_seq, batch_mask)

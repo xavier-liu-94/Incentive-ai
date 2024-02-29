@@ -19,9 +19,9 @@ class PEMappingWithMask(nn.Module):
 
 
 # Contextual Mapping with multi-head
-# x_seq: [x1, x2, x3 ... xn]
-# context_seq: [y1, y2, y3 ... ym]
-# after mapping: [z1, z2, z3 ... zn]
+# x_seq: [x1, x2, x3 ... xn]    xi is vector
+# context_seq: [y1, y2, y3 ... ym]  yi is vector
+# after mapping: [z1, z2, z3 ... zn]    zi is vector
 # Note: zi is unique for xi under context [y1, y2, y3 ... ym]
 class ContextualMapping(nn.Module):
 
