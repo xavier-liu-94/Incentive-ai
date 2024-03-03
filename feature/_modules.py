@@ -1,8 +1,7 @@
-import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-from .contextual_mapping import *
+from ._contextual_mapping import *
 
 
 class SequenceMappingLayer(nn.Module):
@@ -14,7 +13,7 @@ class SequenceMappingLayer(nn.Module):
         self.pos_ffn = PositionwiseFeedForward(dim_x, hidden_dim, dropout=dropout)
 
     # x -> batch, seq_len, dim_x
-    # x_mask -> batch, 1, seq_len
+    # x_mask -> batch, seq_len(1), seq_len
     # return -> batch, seq_len, dim_x
     def forward(self, x, x_mask=None):
         enc_output = self.slf_attn(x, x, mask=x_mask)
@@ -34,7 +33,8 @@ class ConditionSequenceMappingLayer(nn.Module):
     # x -> batch, seq_len, dim_x
     # condition -> batch, condition_seq_len, dim_y
     # x_mask -> batch, seq_len, seq_len
-    # condition_mask -> batch, 1, condition_seq_len
+    # condition_mask -> batch, seq_len(1), condition_seq_len
+    # return -> batch, seq_len, dim_x
     def forward(self, x, condition, x_mask=None, condition_mask=None):
         dec_output = self.slf_mapping(x, x, mask=x_mask)
         dec_output = self.relation_mapping(x, condition, mask=condition_mask)

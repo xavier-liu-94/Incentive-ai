@@ -1,0 +1,1 @@
+About Receiving Data, training, testing, inferening, handling deployment(device).
