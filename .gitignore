@@ -2,3 +2,4 @@ temps/
 scripts/
 *.pyc
 run/
+*__pycache__/

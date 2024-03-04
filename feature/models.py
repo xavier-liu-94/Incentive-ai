@@ -1,8 +1,29 @@
 import torch
 from torch import nn
-from .embeddings import *
-from ._modules import *
+from .embedding import *
+from .module import *
 from .sequence_feature import *
+
+
+class SequenceClassifier(torch.nn.Module):
+
+    def __init__(self, num_class, input_dims, max_seq_len, pad_idx, 
+        dim_x=512, layers=6, head_num=8, dim_head_hidden=64, ff_hiden_dim=2048, 
+        emb_factory=ContinousSeqEmbedding) -> None:
+        super().__init__()
+        self.emb = emb_factory(input_dims=input_dims, dim_x=dim_x, n_position=max_seq_len, pad_idx=pad_idx)
+        self.trans = SequenceFeature(layers, head_num, dim_head_hidden, dim_x, ff_hiden_dim)
+        self.trg_word_prj = nn.Linear(dim_x, num_class, bias=False)
+        self.pad_idx = pad_idx
+    
+    # x -> batch, len. OR batch, len, num_embeddings.
+    # x_mask -> batch, len(1), len
+    def forward(self, x, x_mask):
+        seq_feature = self.emb(x)
+
+        out = self.trans(seq_feature, x_mask)
+
+        return self.trg_word_prj(torch.mean(out, dim=1))
 
 
 class CascadeSeqClassifier(torch.nn.Module):
@@ -20,7 +41,7 @@ class CascadeSeqClassifier(torch.nn.Module):
         self.pad_idx = pad_idx
 
     # x -> batch, len. OR batch, len, num_embeddings.
-    # x_mask -> batch, n_x(1), n_x
+    # x_mask -> batch, len(1), len
     def forward(self, x, x_mask):
         
         input_size = x.size()

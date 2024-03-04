@@ -24,6 +24,8 @@ class SequencialClassifier():
         classify_model.to(device)
         classify_model.train()
     
+    # batch_seq -> batch, len. OR batch, len, num_embeddings.
+    # batch_mask -> batch, len(1), len
     def train(
         self, 
         batch_seq: torch.Tensor,    # batch, n1.

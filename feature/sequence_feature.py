@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from ._modules import *
+from .module import *
 
 
 class SequenceFeature(nn.Module):

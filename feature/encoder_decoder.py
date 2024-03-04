@@ -1,7 +1,7 @@
 import torch
 from torch import nn
-from .embeddings import *
-from ._modules import *
+from .embedding import *
+from .module import *
 
 
 class Encoder(nn.Module):
