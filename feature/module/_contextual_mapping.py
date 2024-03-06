@@ -109,7 +109,7 @@ class LinearSoftmax(PEMappingWithMask):
         multi_head_y = self.linear_context(context_seq).view(-1, n_y, self.head_num, self.dim_mid)
 
         # batch, head_num, n_x, n_y
-        similarity = torch.matmul(multi_head_x.permute(0,2,1,3), multi_head_y.permute(0,2,3,1))
+        similarity = torch.matmul(multi_head_x.permute(0,2,1,3) / self.temperature, multi_head_y.permute(0,2,3,1))
 
         if context_seq_mask is not None:
             context_seq_mask = context_seq_mask.unsqueeze(1)
