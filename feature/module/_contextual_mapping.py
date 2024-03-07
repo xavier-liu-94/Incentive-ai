@@ -36,7 +36,6 @@ class ContextualMapping(nn.Module):
         super().__init__()
         self.head_num = head_num
         self.dim_mid = dim_mid
-        self.head_num = head_num
 
         # Permute equivalent mapping
         self.pe = pe_mapping_factory()
