@@ -40,7 +40,7 @@ class CascadeSeqClassifier(torch.nn.Module):
         self.sub_seq_len = sub_seq_len
         self.pad_idx = pad_idx
 
-    # x -> batch, len. OR batch, len, num_embeddings.
+    # x -> batch, len. OR batch, len, num_fields.
     # x_mask -> batch, len(1), len
     def forward(self, x, x_mask):
         
